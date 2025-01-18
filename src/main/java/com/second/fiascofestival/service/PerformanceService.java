@@ -1,6 +1,7 @@
 package com.second.fiascofestival.service;
 
 
+import com.second.fiascofestival.enums.PerformanceState;
 import com.second.fiascofestival.model.Performance;
 import com.second.fiascofestival.repository.PerformanceRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -40,7 +41,7 @@ public class PerformanceService {
     public void deletePerformance(String id) {
         Performance performance = performanceRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Performance not found."));
-        if (!"CREATED".equals(performance.getState())) {
+        if (!PerformanceState.CREATED.equals(performance.getState())) {
             throw new IllegalStateException("Only performances in CREATED state can be deleted.");
         }
         performanceRepository.deleteById(id);
@@ -51,11 +52,8 @@ public class PerformanceService {
     public Performance submitPerformance(String id) {
         Performance performance = performanceRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Performance not found"));
-        performance.setState("SUBMITTED");
+        performance.setState(PerformanceState.SUBMITTED);
         return performanceRepository.save(performance);
     }
-
-
-
 
 }

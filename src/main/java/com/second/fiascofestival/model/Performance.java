@@ -1,10 +1,12 @@
 package com.second.fiascofestival.model;
 
+import com.second.fiascofestival.enums.PerformanceState;
 import lombok.Getter;
 import lombok.Setter;
 import org.springframework.data.annotation.Id;
 import org.springframework.data.mongodb.core.mapping.Document;
 
+import java.util.HashSet;
 import java.util.List;
 
 @Setter
@@ -20,13 +22,17 @@ public class Performance {
     private String festivalId; // Reference to Festival
     private List<String> bandMembers; // User IDs of band members
     private String technicalRequirements; // File path or content
-    private String state; // Possible values: CREATED, SUBMITTED, REVIEWED, etc.
+    private PerformanceState state; // Possible values: CREATED, SUBMITTED, REVIEWED, etc.
 
+    private User main_artist;
+    private HashSet<User> artists;
+    private User stage_manager;
+    private Festival festival;
     // Constructors, Getters, Setters, etc.
 
     public Performance() {}
 
-    public Performance(String name, String description, String genre, int duration, String festivalId, List<String> bandMembers, String technicalRequirements, String state) {
+    public Performance(String name, String description, String genre, int duration, String festivalId, List<String> bandMembers, String technicalRequirements, PerformanceState state) {
         this.name = name;
         this.description = description;
         this.genre = genre;

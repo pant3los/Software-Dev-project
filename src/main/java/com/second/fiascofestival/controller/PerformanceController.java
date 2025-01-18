@@ -1,5 +1,6 @@
 package com.second.fiascofestival.controller;
 
+import com.second.fiascofestival.enums.PerformanceState;
 import com.second.fiascofestival.model.Performance;
 import com.second.fiascofestival.service.PerformanceService;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -31,7 +32,7 @@ public class PerformanceController {
             }
 
             // Set default state and save
-            performance.setState("DRAFT"); // Default state
+            performance.setState(PerformanceState.CREATED); // Default state
             Performance createdPerformance = performanceService.createPerformance(performance);
             return ResponseEntity.ok(createdPerformance);
         } catch (Exception e) {
