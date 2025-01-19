@@ -1,13 +1,20 @@
 package com.second.fiascofestival.controller;
 
 import com.second.fiascofestival.enums.PerformanceState;
+import com.second.fiascofestival.exceptions.FestivalException;
+import com.second.fiascofestival.exceptions.PerformanceException;
+import com.second.fiascofestival.exceptions.UserException;
 import com.second.fiascofestival.model.Performance;
+import com.second.fiascofestival.model.User;
+import com.second.fiascofestival.service.FestivalService;
 import com.second.fiascofestival.service.PerformanceService;
+import com.second.fiascofestival.service.UserService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -16,39 +23,46 @@ public class PerformanceController {
 
     @Autowired
     private PerformanceService performanceService;
+    @Autowired
+    private FestivalService festivalService;
+    @Autowired
+    private UserService userService;
 
     // Create a new performance
-    @PostMapping
-    public ResponseEntity<?> createPerformance(@RequestBody Performance performance, @RequestHeader("user-role") String role) {
+    @PostMapping("/{id}")
+    public ResponseEntity<?> createPerformance(@RequestBody Performance performance,@PathVariable String id, @RequestHeader("Authorization") String authHeader) {
         try {
-            // Validate user role
-            if (!role.equalsIgnoreCase("ORGANIZER")) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only ORGANIZER can create performances.");
-            }
-
             // Validate required fields
             if (performance.getName() == null || performance.getDescription() == null || performance.getGenre() == null) {
                 return ResponseEntity.badRequest().body("Missing required fields: name, description, or genre.");
             }
 
-            // Set default state and save
+            User loggedUser = null;
+            try {
+                loggedUser = userService.validateUser(authHeader);
+            } catch (UserException e) {
+                return ResponseEntity.status(400).body("wrong username or password");
+            }
+
             performance.setState(PerformanceState.CREATED); // Default state
-            Performance createdPerformance = performanceService.createPerformance(performance);
+            Performance createdPerformance = performanceService.createPerformance(performance, loggedUser, id);
             return ResponseEntity.ok(createdPerformance);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error creating performance: " + e.getMessage());
         }
     }
     @PutMapping("/{id}/submit")
-    public ResponseEntity<?> submitPerformance(@PathVariable String id, @RequestHeader("user-role") String role) {
+    public ResponseEntity<?> submitPerformance(@PathVariable String id,  @RequestHeader("Authorization") String authHeader) {
         try {
-            // Validate user role
-            if (!role.equalsIgnoreCase("ORGANIZER")) {
-                return ResponseEntity.status(HttpStatus.FORBIDDEN).body("Only ORGANIZER can submit performances.");
+            User loggedUser = null;
+            try {
+                loggedUser = userService.validateUser(authHeader);
+            } catch (UserException e) {
+                return ResponseEntity.status(400).body("wrong username or password");
             }
 
             // Change state to SUBMITTED
-            Performance submittedPerformance = performanceService.submitPerformance(id);
+            Performance submittedPerformance = performanceService.submitPerformance(id, loggedUser);
             return ResponseEntity.ok(submittedPerformance);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(e.getMessage());
@@ -67,6 +81,23 @@ public class PerformanceController {
             return ResponseEntity.ok(results);
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body("Error searching performances: " + e.getMessage());
+        }
+    }
+
+    @PostMapping("/{id}/addartist")
+    public ResponseEntity<?> addArtists(@RequestHeader("Authorization") String authHeader, @PathVariable String id, @RequestBody String artist ) {
+        User loggedUser = null;
+        try {
+            loggedUser = userService.validateUser(authHeader);
+        } catch (UserException e) {
+            return ResponseEntity.status(400).body("wrong username or password");
+        }
+
+
+        try {
+            return ResponseEntity.ok(performanceService.addArtist(id, loggedUser, artist));
+        } catch (PerformanceException e) {
+            return ResponseEntity.status(400).body(e.getMessage());
         }
     }
 

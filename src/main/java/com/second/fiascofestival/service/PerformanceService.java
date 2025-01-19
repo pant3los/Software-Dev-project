@@ -2,26 +2,51 @@ package com.second.fiascofestival.service;
 
 
 import com.second.fiascofestival.enums.PerformanceState;
+import com.second.fiascofestival.exceptions.FestivalException;
+import com.second.fiascofestival.exceptions.PerformanceException;
+import com.second.fiascofestival.exceptions.UserException;
+import com.second.fiascofestival.model.Festival;
 import com.second.fiascofestival.model.Performance;
+import com.second.fiascofestival.model.User;
+import com.second.fiascofestival.repository.FestivalRepository;
 import com.second.fiascofestival.repository.PerformanceRepository;
+import com.second.fiascofestival.repository.UserRepository;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
+@Slf4j
 @Service
 public class PerformanceService {
 
     @Autowired
     private PerformanceRepository performanceRepository;
+    @Autowired
+    private UserRepository userRepository;
+    @Autowired
+    private FestivalRepository festivalRepository;
 
-    public Performance createPerformance(Performance performance) {
-        if (performance.getName() == null || performance.getName().isEmpty()) {
-            throw new IllegalArgumentException("Performance name is required.");
+    public Performance createPerformance(Performance performance, User loggedUser, String festivalId) throws FestivalException {
+        Festival festival = festivalRepository.findById(festivalId)
+                .orElseThrow(() -> new FestivalException("Festival not found."));
+
+        if (festival.getStaff().contains(loggedUser) || festival.getOrganizers().contains(loggedUser)) {
+            throw new FestivalException("User cannot perform this performance as he is organizer or staff.");
         }
-        if (performance.getFestivalId() == null) {
-            throw new IllegalArgumentException("Performance must belong to a festival.");
-        }
+
+        festival.getPerformances().add(performance);
+        performance.setFestivalId(festival.getId());
+
+        loggedUser.getMain_artist_in().add(festivalId);
+        performance.setMain_artist(loggedUser);
+
+        festivalRepository.save(festival);
+        festivalRepository.save(festival);
+        userRepository.save(loggedUser);
         return performanceRepository.save(performance);
     }
 
@@ -49,11 +74,44 @@ public class PerformanceService {
     public List<Performance> searchPerformances(String genre, String festivalId) {
         return performanceRepository.findByCriteria(genre, festivalId);
     }
-    public Performance submitPerformance(String id) {
+
+    public Performance submitPerformance(String id, User loggedUser) throws FestivalException {
         Performance performance = performanceRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Performance not found"));
+
+        if (performance.getState() != PerformanceState.CREATED) {
+            throw new FestivalException("Performance is not created.");
+        }
+
+        if (!performance.getMain_artist().equals(loggedUser) || !performance.getArtists().contains(loggedUser)) {
+            throw new FestivalException("User is not artist in this performance");
+        }
+
         performance.setState(PerformanceState.SUBMITTED);
         return performanceRepository.save(performance);
     }
 
+    public Performance addArtist(String id, User loggedUser, String artist) throws PerformanceException {
+        Optional<User> artistUser = Optional.empty();
+
+        artistUser = userRepository.findByUsername(artist);
+        if (!artistUser.isPresent()) {
+            throw new PerformanceException("Artist username does not exist");
+        }
+
+
+        Performance performance = performanceRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Performance not found"));
+        if (performance.getState() != PerformanceState.CREATED) {
+            throw new PerformanceException("Performance is not created.");
+        }
+        if (!performance.getMain_artist().equals(loggedUser) || !performance.getArtists().contains(loggedUser)) {
+            throw new PerformanceException("User is not artist in this performance");
+        }
+
+        artistUser.get().getArtist_in().add(performance.getId());
+        performance.getArtists().add(artistUser.get());
+        userRepository.save(artistUser.get());
+        return performanceRepository.save(performance);
+    }
 }
